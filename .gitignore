@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+.env
+
+
+mosquitto/data/
+mosquitto/log/
+influxdb_data/
+grafana_data/
