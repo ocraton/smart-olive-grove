@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # 1. IL BROKER MQTT (Il Postino)
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sogm_mosquitto
+    ports:
+      - "1883:1883" # Porta per comunicare
+      - "9001:9001" # Porta per websocket (opzionale)
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    # Creiamo un file di config al volo per permettere accesso anonimo (per test)
+    command: >
+      sh -c "echo 'allow_anonymous true' > /mosquitto/config/mosquitto.conf &&
+             echo 'listener 1883' >> /mosquitto/config/mosquitto.conf &&
+             /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"
+
+  # 2. IL DATABASE (La Memoria - Knowledge)
+  influxdb:
+    image: influxdb:1.8
+    container_name: sogm_influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=olive_grove_db
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=adminpassword
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+
+  # 3. IL COLLETORE (Il Ponte tra MQTT e Database)
+  telegraf:
+    image: telegraf:latest
+    container_name: sogm_telegraf
+    depends_on:
+      - influxdb
+      - mosquitto
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+
+  # 4. LA DASHBOARD (Il Monitor)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sogm_grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  influxdb_data:
+  grafana_data:
