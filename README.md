@@ -24,3 +24,19 @@ The system follows an **External Approach** with the following stack:
 Open a terminal in the project root and run:
 ```bash
 docker-compose up
+```
+_Note: Wait until all containers are started and running. Keep this terminal window open._
+
+### 2. Start the Managed Resource (Simulator)
+
+Open a **new** terminal window in the project root.
+
+First, install the necessary node modules (dependencies). You only need to do this the first time:
+```bash
+npm install
+```
+Then, run the simulator script:
+```bash
+npx ts-node simulator.ts
+```
+You should see logs indicating that the simulator has connected to Mosquitto and is publishing sensor data (e.g., `📡 Dati inviati su [oliveto/sensors/weather]...`).
