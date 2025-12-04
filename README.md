@@ -40,3 +40,21 @@ Then, run the simulator script:
 npx ts-node simulator.ts
 ```
 You should see logs indicating that the simulator has connected to Mosquitto and is publishing sensor data (e.g., `📡 Dati inviati su [oliveto/sensors/weather]...`).
+
+### 3. Verify System Behavior (Grafana)
+
+To verify that data is flowing correctly from the Simulator to the Knowledge base:
+
+1.  Open your browser at [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000).
+    
+2.  Login with default credentials:
+    
+    -   **User:** `admin`
+        
+    -   **Password:** `admin` (skip password change if prompted).
+        
+3.  Go to **Explore** (compass icon on the left).
+    
+4.  Select `influxdb_smart_olive_grove` from the data source dropdown at the top.
+    
+5.  Click on a metric (e.g., `temperature`) and verify that the graph is updating in real-time.
