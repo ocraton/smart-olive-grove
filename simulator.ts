@@ -2,52 +2,91 @@ import * as mqtt from "mqtt";
 
 // CONFIGURAZIONE
 const MQTT_BROKER_URL = "mqtt://localhost:1883";
-// Questo topic deve corrispondere a quello che abbiamo messo in telegraf.conf
-const TOPIC_SENSORS = "oliveto/sensors/weather";
 
-// 1. Connessione al Broker (Mosquitto)
-console.log(`🔌 Connessione a Mosquitto in corso (${MQTT_BROKER_URL})...`);
+// Topics
+const TOPIC_SENSORS = "oliveto/sensors/weather";
+const TOPIC_ACTUATOR_VALVE = "oliveto/actuators/drip_valve";
+
+// STATO FISICO (La "realtà" simulata)
+let currentTemp = 20.0;
+let currentHumidity = 25.0; // Partiamo bassi per testare l'attivazione
+let isValveOpen = false; // Stato fisico della valvola
+
+console.log(`🌱 Avvio Simulatore Oliveto (Managed Resource)...`);
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {
-  console.log("✅ Connesso a Mosquitto!");
+  console.log("✅ Simulatore connesso a Mosquitto!");
 
-  // Avvia il loop di simulazione (ogni 5 secondi)
-  setInterval(simulateAndPublish, 5000);
+  // 1. TOUCHPOINT ATTUATORE: Ascolta i comandi del Manager
+  client.subscribe(TOPIC_ACTUATOR_VALVE, (err) => {
+    if (!err)
+      console.log(`👂 Attuatore in ascolto su: ${TOPIC_ACTUATOR_VALVE}`);
+  });
+
+  // Avvia il loop della fisica e dei sensori (ogni 5 secondi)
+  setInterval(simulationLoop, 5000);
 });
 
-client.on("error", (err) => {
-  console.error("❌ Errore connessione MQTT:", err);
+// Gestione Comandi in arrivo (L'Attuatore agisce)
+client.on("message", (topic, message) => {
+  if (topic === TOPIC_ACTUATOR_VALVE) {
+    try {
+      const payload = JSON.parse(message.toString());
+      const command = payload.command; // "ON" o "OFF"
+
+      console.log(`⚙️ [ATTUATORE] Ricevuto comando: ${command}`);
+
+      // Modifica lo stato fisico della valvola
+      if (command === "ON") {
+        isValveOpen = true;
+        console.log("💧 Valvola APERTA. L'irrigazione è iniziata.");
+      } else {
+        isValveOpen = false;
+        console.log("🛑 Valvola CHIUSA. L'irrigazione è terminata.");
+      }
+    } catch (e) {
+      console.error("❌ Errore parsing comando attuatore");
+    }
+  }
 });
 
-// DATI SIMULATI (Stato iniziale)
-let currentTemp = 20.0;
-let currentHumidity = 50.0;
+function simulationLoop() {
+  // 2. FISICA DELL'AMBIENTE (Simulation Logic)
 
-function simulateAndPublish() {
-  // 2. Genera dati finti (Simulazione Fisica semplice)
-  // Facciamo oscillare la temperatura casualmente di +/- 0.5 gradi
-  const change = Math.random() - 0.5;
-  currentTemp += change;
+  // Evoluzione Temperatura (Oscillazione casuale)
+  currentTemp += Math.random() - 0.5;
 
-  // Per l'umidità facciamo lo stesso
-  currentHumidity += (Math.random() - 0.5) * 2;
+  // Evoluzione Umidità (Logica complessa)
+  if (isValveOpen) {
+    // Se l'acqua è aperta, l'umidità sale velocemente
+    currentHumidity += 4.5;
+    console.log(`   (L'acqua sta scorrendo... Umidità +4.5%)`);
+  } else {
+    // Se l'acqua è chiusa, il sole asciuga la terra
+    currentHumidity -= 1.0;
+    console.log(`   (Il sole asciuga... Umidità -1.0%)`);
+  }
 
-  // Arrotondiamo a 2 decimali
+  // Limiti fisici (l'umidità non va sotto 0 o sopra 100)
+  if (currentHumidity < 0) currentHumidity = 0;
+  if (currentHumidity > 100) currentHumidity = 100;
+
+  // Arrotondamento
   const tempToSend = parseFloat(currentTemp.toFixed(2));
   const humToSend = parseFloat(currentHumidity.toFixed(2));
 
-  // 3. Crea il pacchetto dati (Payload)
-  // Telegraf si aspetta un JSON
+  // 3. TOUCHPOINT SENSORE: Invia i dati rilevati
   const payload = {
     temperature: tempToSend,
     humidity: humToSend,
     timestamp: new Date().toISOString(),
   };
 
-  // 4. Invia (Pubblica) il messaggio su MQTT
   const message = JSON.stringify(payload);
   client.publish(TOPIC_SENSORS, message);
 
-  console.log(`📡 Dati inviati su [${TOPIC_SENSORS}]:`, message);
+  console.log(
+    `📡 [SENSORE] Dati inviati: Temp ${tempToSend}°C, Hum ${humToSend}%`
+  );
 }
