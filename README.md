@@ -45,7 +45,7 @@ You should see logs indicating that the simulator has connected to Mosquitto and
 
 To verify that data is flowing correctly from the Simulator to the Knowledge base:
 
-1.  Open your browser at [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000).
+1.  Open your browser at [http://localhost:3000](http://localhost:3000).
     
 2.  Login with default credentials:
     

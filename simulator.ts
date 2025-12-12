@@ -6,6 +6,7 @@ const MQTT_BROKER_URL = "mqtt://localhost:1883";
 // Topics
 const TOPIC_SENSORS = "oliveto/sensors/weather";
 const TOPIC_ACTUATOR_VALVE = "oliveto/actuators/drip_valve";
+const TOPIC_ACTUATOR_ANTIFROST = "oliveto/actuators/antifrost_valve";
 
 // STATO FISICO (La "realtà" simulata)
 let currentTemp = 20.0;
@@ -22,6 +23,11 @@ client.on("connect", () => {
   client.subscribe(TOPIC_ACTUATOR_VALVE, (err) => {
     if (!err)
       console.log(`👂 Attuatore in ascolto su: ${TOPIC_ACTUATOR_VALVE}`);
+  });
+
+  client.subscribe(TOPIC_ACTUATOR_ANTIFROST, (err) => {
+    if (!err)
+      console.log(`👂 Attuatore Antibrina in ascolto su: ${TOPIC_ACTUATOR_ANTIFROST}`);
   });
 
   // Avvia il loop della fisica e dei sensori (ogni 5 secondi)
@@ -49,13 +55,21 @@ client.on("message", (topic, message) => {
       console.error("❌ Errore parsing comando attuatore");
     }
   }
+
+  if (topic === TOPIC_ACTUATOR_ANTIFROST) {
+    const payload = JSON.parse(message.toString());
+    console.log(`❄️ [ATTUATORE ANTIBRINA] Ricevuto: ${payload.command}`);
+  }
 });
 
 function simulationLoop() {
   // 2. FISICA DELL'AMBIENTE (Simulation Logic)
 
   // Evoluzione Temperatura (Oscillazione casuale)
-  currentTemp += Math.random() - 0.5;
+  // currentTemp += Math.random() - 0.5;
+
+  // Tendenza al calo (es. notte che avanza)
+  currentTemp -= 0.1;
 
   // Evoluzione Umidità (Logica complessa)
   if (isValveOpen) {

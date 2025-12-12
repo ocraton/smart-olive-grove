@@ -19,6 +19,8 @@
   },
   "homepage": "https://github.com/ocraton/smart-olive-grove#readme",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
+    "axios": "^1.13.2",
     "mqtt": "^5.14.1"
   },
   "devDependencies": {
