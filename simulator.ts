@@ -7,100 +7,96 @@ const MQTT_BROKER_URL = "mqtt://localhost:1883";
 const TOPIC_SENSORS = "oliveto/sensors/weather";
 const TOPIC_ACTUATOR_VALVE = "oliveto/actuators/drip_valve";
 const TOPIC_ACTUATOR_ANTIFROST = "oliveto/actuators/antifrost_valve";
+const TOPIC_ACTUATOR_NEBULIZER = "oliveto/actuators/nebulizer_pump"; // NUOVO
 
 // STATO FISICO (La "realtà" simulata)
 let currentTemp = 20.0;
-let currentHumidity = 25.0; // Partiamo bassi per testare l'attivazione
-let isValveOpen = false; // Stato fisico della valvola
+let currentHumidity = 25.0;
+let currentWindSpeed = 10.0; // km/h (NUOVO)
+let currentTrapCount = 0; // Numero insetti (NUOVO)
 
-console.log(`🌱 Avvio Simulatore Oliveto (Managed Resource)...`);
+// Stato Attuatori
+let isValveOpen = false;
+let isNebulizerActive = false; // NUOVO
+
+console.log(`🌱 Avvio Simulatore Oliveto (Full Scenarios)...`);
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {
   console.log("✅ Simulatore connesso a Mosquitto!");
 
-  // 1. TOUCHPOINT ATTUATORE: Ascolta i comandi del Manager
-  client.subscribe(TOPIC_ACTUATOR_VALVE, (err) => {
-    if (!err)
-      console.log(`👂 Attuatore in ascolto su: ${TOPIC_ACTUATOR_VALVE}`);
-  });
+  // Sottoscrizione Attuatori
+  client.subscribe(TOPIC_ACTUATOR_VALVE);
+  client.subscribe(TOPIC_ACTUATOR_ANTIFROST);
+  client.subscribe(TOPIC_ACTUATOR_NEBULIZER); // NUOVO
 
-  client.subscribe(TOPIC_ACTUATOR_ANTIFROST, (err) => {
-    if (!err)
-      console.log(`👂 Attuatore Antibrina in ascolto su: ${TOPIC_ACTUATOR_ANTIFROST}`);
-  });
-
-  // Avvia il loop della fisica e dei sensori (ogni 5 secondi)
   setInterval(simulationLoop, 5000);
 });
 
-// Gestione Comandi in arrivo (L'Attuatore agisce)
+// Gestione Comandi
 client.on("message", (topic, message) => {
+  const payload = JSON.parse(message.toString());
+  const command = payload.command;
+
   if (topic === TOPIC_ACTUATOR_VALVE) {
-    try {
-      const payload = JSON.parse(message.toString());
-      const command = payload.command; // "ON" o "OFF"
-
-      console.log(`⚙️ [ATTUATORE] Ricevuto comando: ${command}`);
-
-      // Modifica lo stato fisico della valvola
-      if (command === "ON") {
-        isValveOpen = true;
-        console.log("💧 Valvola APERTA. L'irrigazione è iniziata.");
-      } else {
-        isValveOpen = false;
-        console.log("🛑 Valvola CHIUSA. L'irrigazione è terminata.");
-      }
-    } catch (e) {
-      console.error("❌ Errore parsing comando attuatore");
+    if (command === "ON") {
+      isValveOpen = true;
+      console.log("💧 [Sim] Valvola Irrigazione APERTA.");
+    } else {
+      isValveOpen = false;
+      console.log("🛑 [Sim] Valvola Irrigazione CHIUSA.");
     }
-  }
-
-  if (topic === TOPIC_ACTUATOR_ANTIFROST) {
-    const payload = JSON.parse(message.toString());
-    console.log(`❄️ [ATTUATORE ANTIBRINA] Ricevuto: ${payload.command}`);
+  } else if (topic === TOPIC_ACTUATOR_ANTIFROST) {
+    console.log(`❄️ [Sim] Antibrina: ${command}`);
+  } else if (topic === TOPIC_ACTUATOR_NEBULIZER) {
+    if (command === "ON") {
+      isNebulizerActive = true;
+      console.log("💨 [Sim] Nebulizzatore ATTIVO (Trattamento in corso).");
+    } else {
+      isNebulizerActive = false;
+      console.log("🛑 [Sim] Nebulizzatore SPENTO.");
+    }
   }
 });
 
 function simulationLoop() {
-  // 2. FISICA DELL'AMBIENTE (Simulation Logic)
+  // 1. FISICA TEMPERATURA (Oscillazione)
+  currentTemp += Math.random() - 0.5;
+  // currentTemp -= 0.2; // Scommenta per testare GELO rapido
 
-  // Evoluzione Temperatura (Oscillazione casuale)
-  // currentTemp += Math.random() - 0.5;
-
-  // Tendenza al calo (es. notte che avanza)
-  currentTemp -= 0.1;
-
-  // Evoluzione Umidità (Logica complessa)
-  if (isValveOpen) {
-    // Se l'acqua è aperta, l'umidità sale velocemente
-    currentHumidity += 4.5;
-    console.log(`   (L'acqua sta scorrendo... Umidità +4.5%)`);
-  } else {
-    // Se l'acqua è chiusa, il sole asciuga la terra
-    currentHumidity -= 1.0;
-    console.log(`   (Il sole asciuga... Umidità -1.0%)`);
-  }
-
-  // Limiti fisici (l'umidità non va sotto 0 o sopra 100)
+  // 2. FISICA UMIDITÀ
+  if (isValveOpen) currentHumidity += 4.5;
+  else currentHumidity -= 1.0;
   if (currentHumidity < 0) currentHumidity = 0;
   if (currentHumidity > 100) currentHumidity = 100;
 
-  // Arrotondamento
-  const tempToSend = parseFloat(currentTemp.toFixed(2));
-  const humToSend = parseFloat(currentHumidity.toFixed(2));
+  // 3. FISICA VENTO (NUOVO)
+  // Il vento cambia casualmente
+  currentWindSpeed += (Math.random() - 0.5) * 5;
+  if (currentWindSpeed < 0) currentWindSpeed = 0;
 
-  // 3. TOUCHPOINT SENSORE: Invia i dati rilevati
+  // 4. FISICA MOSCHE (NUOVO)
+  if (isNebulizerActive) {
+    // Se trattiamo, le mosche muoiono rapidamente
+    currentTrapCount -= 10;
+    if (currentTrapCount < 0) currentTrapCount = 0;
+  } else {
+    // Se non trattiamo, le mosche aumentano (infestazione)
+    currentTrapCount += 5;
+  }
+
+  // Invio Dati
   const payload = {
-    temperature: tempToSend,
-    humidity: humToSend,
+    temperature: parseFloat(currentTemp.toFixed(2)),
+    humidity: parseFloat(currentHumidity.toFixed(2)),
+    wind_speed: parseFloat(currentWindSpeed.toFixed(2)), // NUOVO
+    trap_count: Math.floor(currentTrapCount), // NUOVO
     timestamp: new Date().toISOString(),
   };
 
-  const message = JSON.stringify(payload);
-  client.publish(TOPIC_SENSORS, message);
+  client.publish(TOPIC_SENSORS, JSON.stringify(payload));
 
   console.log(
-    `📡 [SENSORE] Dati inviati: Temp ${tempToSend}°C, Hum ${humToSend}%`
+    `📡 [SENSORE] T:${payload.temperature}°C H:${payload.humidity}% W:${payload.wind_speed}km/h 🪰:${payload.trap_count}`
   );
 }
