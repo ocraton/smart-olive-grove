@@ -1,28 +1,21 @@
 import * as mqtt from "mqtt";
 import axios from "axios";
-
-// --- CONFIGURAZIONE ---
-const MQTT_BROKER_URL = "mqtt://localhost:1883";
-const INFLUX_URL = "http://localhost:8086/query";
-const DATABASE_NAME = "olive_grove_db";
-
-// Topics
-const TOPIC_SENSOR_WEATHER = "oliveto/sensors/weather";
-const TOPIC_ACTUATOR_VALVE = "oliveto/actuators/drip_valve";
-const TOPIC_ACTUATOR_ANTIFROST = "oliveto/actuators/antifrost_valve";
-const TOPIC_ACTUATOR_NEBULIZER = "oliveto/actuators/nebulizer_pump";
-
-// KNOWLEDGE (Soglie)
-// Scenario A
-const HUMIDITY_THRESHOLD_CRITICAL = 30.0;
-const HUMIDITY_THRESHOLD_TARGET = 35.0;
-// Scenario B (Mosca)
-const TRAP_THRESHOLD_RISK = 50; // Sopra 50 insetti serve trattamento
-const WIND_SAFE_LIMIT = 15.0; // Sopra 15 km/h non si può spruzzare (Drift)
-// Scenario C (Gelo)
-const TEMP_RISK_ZONE = 3.0;
-const TEMP_FREEZING = 0.0;
-const MAX_DROP_RATE = 2.0;
+import {
+  TOPIC_SENSOR_WEATHER,
+  TOPIC_ACTUATOR_VALVE,
+  TOPIC_ACTUATOR_ANTIFROST,
+  TOPIC_ACTUATOR_NEBULIZER,
+  MQTT_BROKER_URL,
+  INFLUX_URL,
+  DATABASE_NAME,
+  HUMIDITY_THRESHOLD_CRITICAL,
+  HUMIDITY_THRESHOLD_TARGET,
+  TRAP_THRESHOLD_RISK,
+  WIND_SAFE_LIMIT,
+  TEMP_RISK_ZONE,
+  TEMP_FREEZING,
+  MAX_DROP_RATE,
+} from "./constants";
 
 // Stato interno
 let isIrrigating = false;
