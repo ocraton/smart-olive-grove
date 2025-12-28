@@ -1,24 +1,22 @@
 version: '3.8'
 
 services:
-  # 1. IL BROKER MQTT (Il Postino)
+  # --- INFRASTRUTTURA ---
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: sogm_mosquitto
     ports:
-      - "1883:1883" # Porta per comunicare
-      - "9001:9001" # Porta per websocket (opzionale)
+      - "1883:1883"
+      - "9001:9001"
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-    # Creiamo un file di config al volo per permettere accesso anonimo (per test)
     command: >
       sh -c "echo 'allow_anonymous true' > /mosquitto/config/mosquitto.conf &&
              echo 'listener 1883' >> /mosquitto/config/mosquitto.conf &&
              /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"
 
-  # 2. IL DATABASE (La Memoria - Knowledge)
   influxdb:
     image: influxdb:1.8
     container_name: sogm_influxdb
@@ -31,7 +29,6 @@ services:
     volumes:
       - influxdb_data:/var/lib/influxdb
 
-  # 3. IL COLLETORE (Il Ponte tra MQTT e Database)
   telegraf:
     image: telegraf:latest
     container_name: sogm_telegraf
@@ -41,7 +38,6 @@ services:
     volumes:
       - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
 
-  # 4. LA DASHBOARD (Il Monitor)
   grafana:
     image: grafana/grafana:latest
     container_name: sogm_grafana
@@ -54,6 +50,46 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
+
+  # --- MICROSERVIZI MAPE (Novità!) ---
+  
+  monitor:
+    build: .
+    container_name: sogm_monitor
+    command: npx ts-node monitor/index.ts
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+
+  analyzer:
+    build: .
+    container_name: sogm_analyzer
+    command: npx ts-node analyzer/index.ts
+    depends_on:
+      - mosquitto
+      - influxdb
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - INFLUX_URL=http://influxdb:8086/query
+
+  planner:
+    build: .
+    container_name: sogm_planner
+    command: npx ts-node planner/index.ts
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+
+  executor:
+    build: .
+    container_name: sogm_executor
+    command: npx ts-node executor/index.ts
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
 
 volumes:
   influxdb_data:
