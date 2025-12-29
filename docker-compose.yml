@@ -51,7 +51,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
 
-  # --- MICROSERVIZI MAPE (Novità!) ---
+  # --- MICROSERVIZI MAPE ---
   
   monitor:
     build: .

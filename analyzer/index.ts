@@ -48,7 +48,7 @@ async function analyze(data: any) {
   if (data.trap_count > TRAP_LIMIT) {
     publishSymptom("PEST_INFESTATION", {
       count: data.trap_count,
-      wind_speed: data.wind_speed, // passiamo anche il gelo per i vincoli
+      wind_speed: data.wind_speed, // passiamo anche la velocità del vento per i vincoli
     });
   } else if (data.trap_count < 10) {
     publishSymptom("PEST_CLEARED", {});
