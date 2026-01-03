@@ -111,3 +111,7 @@ let currentTemp = 10.0; // Start from lower temperature
 ```
 
 **Result:** When Temp drops below 3°C, the Analyzer queries InfluxDB, detects `FROST_RISK_PREDICTED`, and the Planner activates `antifrost_valve` BEFORE 0°C is reached.
+
+## Architecture Diagram
+
+![Architecture Diagram](./architecture-diagram.jpg)
