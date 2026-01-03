@@ -61,25 +61,23 @@ async function analyze(data: any) {
     // Controllo InfluxDB per trend
     try {
       // 1. Prendiamo TUTTI i dati degli ultimi 30 minuti
-      const query = `SELECT temperature FROM mqtt_consumer WHERE time >= now() - 30m ORDER BY time ASC`;
-      
+      const query = `SELECT temperature FROM mqtt_consumer WHERE time >= now() - 30m`;
+
       const response = await axios.get(INFLUX_URL, {
         params: { q: query, db: DATABASE_NAME },
       });
 
       const values = response.data.results[0].series[0].values; // Array di [time, temp]
 
-      // Ci servono almeno un po' di dati per fare una statistica sensata
+      // Per fare una statistica decente, prendiamo un blocco di dati all'inizio e alla fine
       if (values.length > 10) {
-        // 2. Calcoliamo la media dei PRIMI 5 rilevamenti (Start Window)
-        //    Questo "pulisce" eventuali errori del sensore di 30 minuti fa
+        // 2. Calcoliamo la media dei PRIMI 5 rilevamenti
         const startWindow = values.slice(0, 5);
         const startAvg =
           startWindow.reduce((acc: number, curr: any) => acc + curr[1], 0) /
           startWindow.length;
 
-        // 3. Calcoliamo la media degli ULTIMI 5 rilevamenti (End Window)
-        //    Questo "pulisce" eventuali errori del sensore attuali
+        // 3. Calcoliamo la media degli ULTIMI 5 rilevamenti
         const endWindow = values.slice(-5);
         const endAvg =
           endWindow.reduce((acc: number, curr: any) => acc + curr[1], 0) / endWindow.length;
