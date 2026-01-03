@@ -8,7 +8,7 @@ import {
 } from "./constants";
 
 // STATO FISICO (La "realtà" simulata)
-let currentTemp = 20.0;
+let currentTemp = 15.0;
 let currentHumidity = 25.0;
 let currentWindSpeed = 10.0; // km/h 
 let currentTrapCount = 0; // Numero insetti nelle trappole
@@ -60,7 +60,7 @@ client.on("message", (topic, message) => {
 function simulationLoop() {
   // 1. FISICA TEMPERATURA (Oscillazione)
   currentTemp += Math.random() - 0.5;
-  // currentTemp -= 0.2; // Scommenta per testare GELO rapido
+  // currentTemp -= 0.5; // Scommenta per testare GELO rapido
 
   // 2. FISICA UMIDITÀ
   if (isValveOpen) currentHumidity += 4.5; // l'irrigazione aumenta l'umidità

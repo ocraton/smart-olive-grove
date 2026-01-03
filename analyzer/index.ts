@@ -60,25 +60,50 @@ async function analyze(data: any) {
   } else if (data.temperature <= TEMP_RISK) {
     // Controllo InfluxDB per trend
     try {
-      const query = `SELECT temperature FROM mqtt_consumer WHERE time > now() - 30m LIMIT 1`;
+      // 1. Prendiamo TUTTI i dati degli ultimi 30 minuti
+      const query = `SELECT temperature FROM mqtt_consumer WHERE time >= now() - 30m ORDER BY time ASC`;
+      
       const response = await axios.get(INFLUX_URL, {
         params: { q: query, db: DATABASE_NAME },
       });
-      const series = response.data.results[0].series;
 
-      if (series && series[0].values.length > 0) {
-        const oldTemp = series[0].values[0][1];
-        const dropRate = (oldTemp - data.temperature) / 0.5; // °C/h
+      const values = response.data.results[0].series[0].values; // Array di [time, temp]
+
+      // Ci servono almeno un po' di dati per fare una statistica sensata
+      if (values.length > 10) {
+        // 2. Calcoliamo la media dei PRIMI 5 rilevamenti (Start Window)
+        //    Questo "pulisce" eventuali errori del sensore di 30 minuti fa
+        const startWindow = values.slice(0, 5);
+        const startAvg =
+          startWindow.reduce((acc: number, curr: any) => acc + curr[1], 0) /
+          startWindow.length;
+
+        // 3. Calcoliamo la media degli ULTIMI 5 rilevamenti (End Window)
+        //    Questo "pulisce" eventuali errori del sensore attuali
+        const endWindow = values.slice(-5);
+        const endAvg =
+          endWindow.reduce((acc: number, curr: any) => acc + curr[1], 0) / endWindow.length;
+
+        // 4. Calcolo del Rate
+        //    Usiamo startAvg e endAvg che sono valori "puliti" e stabili
+        const diff = startAvg - endAvg;
+        const dropRate = diff / 0.5; // °C/h
+
+        console.log(
+          `Trend Analysis: StartAvg ${startAvg.toFixed(
+            2
+          )} -> EndAvg ${endAvg.toFixed(2)} | Rate: ${dropRate.toFixed(2)}`
+        );
 
         if (dropRate > MAX_DROP_RATE) {
           publishSymptom("FROST_RISK_PREDICTED", {
-            current_temp: data.temperature,
+            current_temp: endAvg, // Usiamo la media finale, è più affidabile del singolo dato
             drop_rate: dropRate,
           });
         }
       }
     } catch (e) {
-      /* silent fail */
+      console.error("Errore lettura InfluxDB:", e instanceof Error ? e.message : String(e));
     }
   } else if (data.temperature > TEMP_RISK) {
     publishSymptom("FROST_RISK_CLEARED", {});

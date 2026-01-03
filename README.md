@@ -105,7 +105,9 @@ let currentTrapCount = 60;
 
 ```typescript
 // currentTemp += (Math.random() - 0.5); // Comment this
-currentTemp -= 0.2; // Force rapid drop
+currentTemp -= 0.5; // Force rapid drop
+
+let currentTemp = 10.0; // Start from lower temperature
 ```
 
 **Result:** When Temp drops below 3°C, the Analyzer queries InfluxDB, detects `FROST_RISK_PREDICTED`, and the Planner activates `antifrost_valve` BEFORE 0°C is reached.
