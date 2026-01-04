@@ -5,7 +5,7 @@ const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
 const TOPIC_mV_SENSORS = "oliveto/sensors/weather"; // Input dal simulatore
 const TOPIC_INTERNAL_MONITOR = "managed/monitor/weather"; // Output verso Analyzer
 
-console.log("VX [MONITOR] Avvio servizio...");
+console.log("[MONITOR] Avvio servizio...");
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {

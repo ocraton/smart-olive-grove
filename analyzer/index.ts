@@ -18,7 +18,7 @@ const TEMP_RISK = 3.0;
 const TEMP_FREEZING = 0.0;
 const MAX_DROP_RATE = 2.0;
 
-console.log("🔍 [ANALYZER] Avvio servizio...");
+console.log("[ANALYZER] Avvio servizio...");
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {

@@ -13,7 +13,7 @@ let irrigationActive = false;
 let antifrostActive = false;
 let nebulizerActive = false;
 
-console.log("gw [PLANNER] Avvio servizio...");
+console.log("[PLANNER] Avvio servizio...");
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {

@@ -17,7 +17,7 @@ let currentTrapCount = 0; // Numero insetti nelle trappole
 let isValveOpen = false;
 let isNebulizerActive = false; 
 
-console.log(`🌱 Avvio Simulatore Oliveto (Full Scenarios)...`);
+console.log(`🌱 Avvio Simulatore Oliveto...`);
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {

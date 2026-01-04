@@ -10,7 +10,7 @@ const ACTUATORS: { [key: string]: string } = {
   nebulizer_pump: "oliveto/actuators/nebulizer_pump",
 };
 
-console.log("pk [EXECUTOR] Avvio servizio...");
+console.log("[EXECUTOR] Avvio servizio...");
 const client = mqtt.connect(MQTT_BROKER_URL);
 
 client.on("connect", () => {
