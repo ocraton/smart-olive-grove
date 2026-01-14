@@ -19,11 +19,11 @@ export const DATABASE_NAME = "olive_grove_db";
 
 // Scenario A: Idratazione
 export const HUMIDITY_THRESHOLD_CRITICAL = 30.0; // Sotto il 30% irriga
-export const HUMIDITY_THRESHOLD_TARGET = 35.0;   // Smetti quando arrivi al 35% (isteresi)
+export const HUMIDITY_THRESHOLD_TARGET = 35.0;   // Smetti quando arrivi al 35%
 
 // Scenario B: Pest Control (Mosca)
 export const TRAP_THRESHOLD_RISK = 50;  // Sopra 50 insetti serve trattamento
-export const WIND_SAFE_LIMIT = 15.0;    // Sopra 15 km/h non si può spruzzare (Drift)
+export const WIND_SAFE_LIMIT = 15.0;    // Sopra 15 km/h non si può spruzzare
 
 // Scenario C: Protezione Gelo
 export const TEMP_RISK_ZONE = 3.0;      // Sotto 3°C inizia zona di rischio
