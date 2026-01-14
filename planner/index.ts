@@ -65,7 +65,7 @@ async function plan(symptom: any) {
           nebulizerActive = true;
         } else {
           console.log(
-            `✋ [PLANNER] CONFLITTO: Infestazione: ${symptom.count} ma Vento Alto (${symptom.wind_speed}). POSTICIPO.`
+            `✋ [PLANNER] CONFLITTO: Infestazione: ${symptom.count} ma Vento Alto (${symptom.wind_speed}).`
           );
           if(symptom.count > TRAP_COUNT_THRESHOLD_LIMIT){
             console.log("💡 [PLANNER] Emergenza Insetti! Attivo NONOSTANTE il vento.");
@@ -151,7 +151,7 @@ const checkIfDelayedTooLong = async (): Promise<boolean> => {
     const lastDelayTimestamp = lastEventValues[0]; // Grazie a 'epoch: ms' questo è un numero!
 
     const currentTime = Date.now();
-    const timeDiffMinutes = (currentTime - lastDelayTimestamp) / (1000 * 60);
+    const timeDiffMinutes = (currentTime - lastDelayTimestamp) / (1000 * 60); // conversione in minuti
 
     console.log(
       `⏱️ [PLANNER] Ultimo delay: ${timeDiffMinutes.toFixed(
