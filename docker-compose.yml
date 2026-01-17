@@ -49,21 +49,36 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
 
+
+  # --- MANAGED RESOURCE (IL SIMULATORE) ---
+  simulator:
+    build:
+      context: ./managed-resource  
+      dockerfile: Dockerfile       
+    container_name: sogm_simulator
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - INFLUX_URL=http://influxdb:8086/query
+
   # --- MICROSERVIZI MAPE ---
   
   monitor:
-    build: .
+    build:
+      context: ./monitor          
+      dockerfile: Dockerfile
     container_name: sogm_monitor
-    command: npx ts-node monitor/index.ts
     depends_on:
       - mosquitto
     environment:
       - MQTT_BROKER_URL=mqtt://mosquitto:1883
 
   analyzer:
-    build: .
-    container_name: sogm_analyzer
-    command: npx ts-node analyzer/index.ts
+    build:
+      context: ./analyzer         
+      dockerfile: Dockerfile
+    container_name: sogm_analyzer  
     depends_on:
       - mosquitto
       - influxdb
@@ -72,18 +87,21 @@ services:
       - INFLUX_URL=http://influxdb:8086/query
 
   planner:
-    build: .
+    build:
+      context: ./planner           
+      dockerfile: Dockerfile
     container_name: sogm_planner
-    command: npx ts-node planner/index.ts
     depends_on:
       - mosquitto
     environment:
       - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - INFLUX_URL=http://influxdb:8086
 
   executor:
-    build: .
+    build:
+      context: ./executor          
+      dockerfile: Dockerfile
     container_name: sogm_executor
-    command: npx ts-node executor/index.ts
     depends_on:
       - mosquitto
     environment:

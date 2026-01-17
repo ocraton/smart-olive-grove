@@ -9,8 +9,8 @@ export const TOPIC_ACTUATOR_NEBULIZER = "oliveto/actuators/nebulizer_pump";
 // ==========================================
 // CONFIGURAZIONE CONNESSIONI
 // ==========================================
-export const MQTT_BROKER_URL = "mqtt://localhost:1883";
-export const INFLUX_URL = "http://localhost:8086/query";
+export const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://localhost:1883";
+export const INFLUX_URL = process.env.INFLUX_URL || "http://localhost:8086/query";
 export const DATABASE_NAME = "olive_grove_db";
 
 // ==========================================
