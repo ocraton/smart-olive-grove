@@ -6,7 +6,8 @@
     "start": "ts-node index.ts"
   },
   "dependencies": {
-    "mqtt": "^5.0.0"
+    "mqtt": "^5.0.0",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "ts-node": "^10.9.1",
