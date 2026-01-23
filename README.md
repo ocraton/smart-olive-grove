@@ -186,6 +186,6 @@ You can plot wind_speed, trap_count, and nebulizer status to verify the logic.
 └── docker-compose.yml
 ```
 
-## Architecture Diagram
+## Architecture Schema
 
-![Architecture Diagram](./architecture-diagram.jpg)
+![Architecture Schema](./architecture-schema.jpg)
