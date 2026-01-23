@@ -1,13 +1,16 @@
 # Smart Olive Grove Manager (SOGM)
+
 **Student:** Marco Spada (ID: 308887)  
 **Course:** Software Engineering for Autonomous Systems
 
 ## Project Overview
+
 This project implements an advanced Autonomic Computing System for managing an olive grove using the MAPE-K loop architecture.
 
-Unlike traditional static implementations, this system features a **Dynamic, Data-Driven Architecture**. The logic is not hardcoded in the microservices; instead, the system acts as a generic Control Platform where sensors, actuators, and control loops are defined via an external configuration. This approach demonstrates key software engineering principles such as **Decoupling**, **Heterarchical Control**, and **Resilience**.
+Unlike traditional static implementations, this system features a **Dynamic, Data-Driven Architecture**. The logic is not hardcoded in the microservices; instead, the system acts as a **generic Control Platform** where sensors, actuators, and control loops are defined via an external configuration. This approach demonstrates key software engineering principles such as **Decoupling, Heterarchical Control, and Resilience**.
 
 ## 🏗️ Architecture: The "External Approach"
+
 The system is fully containerized (Docker) and composed of the following services:
 
 ### 1. Infrastructure Layer
@@ -20,40 +23,127 @@ The system is fully containerized (Docker) and composed of the following service
 
 ### 3. Autonomic Manager (The Brain)
 Decomposed into independent microservices:
+
 - **Config Service (Source of Truth):** Provides the system topology (devices) and Control Policies (Loops) via HTTP.
 - **Monitor:** Dynamically subscribes to sensor topics defined in the configuration.
-- **Analyzer (Generic Engine):** Evaluates logical rules (AND/OR, Thresholds) and complex historical queries (e.g., `EXT_INFLUX_DELAY`) defined in the JSON configuration.
-- **Planner (Conflict Resolver):** Receives action requests and resolves conflicts between loops based on Numerical Priority (e.g., Safety > Production).
+- **Analyzer (Generic Engine):** Evaluates logical rules (AND/OR, Thresholds) and complex historical queries (e.g., `EXT_INFLUX_DELAY`, `EXT_TEMP_DROP_RATE`) defined in the JSON configuration.
+- **Planner (Conflict Resolver):** Receives action requests and resolves conflicts between loops based on **Numerical Priority** (e.g., Safety > Production).
 - **Executor:** Maps logical commands to specific physical topics.
 
 ## 🚀 Key Engineering Concepts Implemented
-- **Single Source of Truth:** All rules, thresholds, and topology are centralized in `config-service`. Changing a threshold requires zero code changes in the Analyzer.
+
+- **Single Source of Truth:** All rules, thresholds, and topology are centralized in `config-service`. Changing a threshold requires **zero code changes** in the Analyzer.
 - **Decoupling & Portability:** All services are independent containers. The Simulator runs in Docker, making the project runnable on any machine with one command.
 - **Dynamic Control Loops (Heterarchy):** The system supports "Many-to-Many" relationships. One sensor can trigger multiple actuators, or multiple sensors can influence a single decision.
 - **Fault Tolerance (Retry Pattern):** Services implement a robust startup sequence, retrying connections indefinitely until dependencies (like Config Service) are healthy.
 
 ## 🛠️ How to Run the System
+
 ### Prerequisites
-- Docker Desktop installed and running.
+- **Docker Desktop** installed and running.
 
 ### Start Everything
 Open a terminal in the project root and run:
+
 ```bash
 docker-compose up --build
 ```
 
 That's it. No need to install Node.js locally or run separate terminals. The command will build all images, start the infrastructure, and launch the autonomic loop.
 
-Verify System Behavior
+### Verify System Behavior
+
 Check the logs to see the loop in action:
 
 ```bash
-
 # View the Analyzer evaluating rules dynamically
 docker logs -f sogm_analyzer
 
 # View the Planner resolving conflicts based on priority
 docker logs -f sogm_planner
+```
+
+## 🧪 How to Test Specific Scenarios
+To verify the autonomic logic, you can modify the initial physics state in managed-resource/simulator.ts and restart only the simulator container.
+
+### Scenario A: Hydration Maintenance (Reactive)
+**Goal:** Detect low humidity (< 30%) and activate the Drip Valve.
+
+1. Open **`managed-resource/simulator.ts.`**
+2. Modify the physics object:
+
+```TypeScript
+let physics = {
+  temperature: 25.0,
+  humidity: 20.0,    // <--- TEST: Below threshold (30%)
+  wind_speed: 5.0,
+  trap_count: 0
+};
+```
+Apply changes: 
+```bash
+docker-compose up -d --build simulator
+```
+
+Result: 
+```bash 
+Log shows 🚀 [EXECUTOR] ON -> .../drip_valve.
+```
+
+
+### Scenario B: Pest Control with Conflict Resolution
+**Goal:** Treat infestation (`> 50 pests`) ONLY if wind is safe (`< 15 km/h`). If wind is high, wait. `If delay > 30 mins`, force activation.
+
+Open **`managed-resource/simulator.ts.`**
+
+Modify the physics object:
+
+```TypeScript
+let physics = {
+  temperature: 20.0,
+  humidity: 50.0,
+  wind_speed: 25.0,  // <--- TEST: High Wind (> 15)
+  trap_count: 80     // <--- TEST: Critical Infestation (> 50)
+};
+```
+Apply changes: 
+```bash
+docker-compose up -d --build simulator
+```
+
+Result:
+```bash
+Analyzer logs: ℹ️ Primo blocco vento rilevato. Avvio timer...
+```
+
+Actuator remains OFF initially.
+
+(After 30 mins or forcing DB): Analyzer logs 📝 Timer avviato and eventually activates override.
+
+
+### Scenario C: Frost Protection (Predictive/Critical)
+**Goal:** Immediate activation of anti-frost emitter if temperature drops below 0°C.
+
+Open **`managed-resource/simulator.ts.`**
+
+Modify the physics object:
+
+```TypeScript
+let physics = {
+  temperature: -2.0, // <--- TEST: Freezing condition
+  humidity: 40.0,
+  wind_speed: 5.0,
+  trap_count: 0
+};
+```
+Apply changes: 
+```bash
+docker-compose up -d --build simulator
+```
+
+Result: 
+```bash
+Analyzer logs ⚡ Loop Critico 'loop_frost_protection' attivato! and Executor sends ON to antifrost_emitter.
 ```
 
 ## ⚙️ Configuration & Logic (The Core)
