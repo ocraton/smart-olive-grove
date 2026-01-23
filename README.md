@@ -1,117 +1,97 @@
 # Smart Olive Grove Manager (SOGM)
-
 **Student:** Marco Spada (ID: 308887)  
 **Course:** Software Engineering for Autonomous Systems
 
 ## Project Overview
+This project implements an advanced Autonomic Computing System for managing an olive grove using the MAPE-K loop architecture.
 
-This project implements an autonomic system for managing an olive grove using the **MAPE-K** loop architecture. The system is designed as a Distributed Microservices Architecture, where the Autonomic Manager is decomposed into four independent containerized services (Monitor, Analyzer, Planner, Executor) communicating via MQTT.
+Unlike traditional static implementations, this system features a **Dynamic, Data-Driven Architecture**. The logic is not hardcoded in the microservices; instead, the system acts as a generic Control Platform where sensors, actuators, and control loops are defined via an external configuration. This approach demonstrates key software engineering principles such as **Decoupling**, **Heterarchical Control**, and **Resilience**.
 
-## Architecture
+## 🏗️ Architecture: The "External Approach"
+The system is fully containerized (Docker) and composed of the following services:
 
-The system follows an **External Approach** with the following stack:
+### 1. Infrastructure Layer
+- **Mosquitto (MQTT):** The message bus for asynchronous communication.
+- **InfluxDB:** Time-series database for historical knowledge and trend analysis.
+- **Grafana:** Visualization dashboard.
 
-- **Managed Resource:** A Node.js Simulator (Digital Twin of the grove) located in `managed-resource/`.
-- **Communication:** MQTT (Eclipse Mosquitto).
-- **Monitoring & Knowledge:** Telegraf + InfluxDB.
-- **Visualization:** Grafana.
-- **Autonomic Manager:** Decomposed into 4 Microservices (Node.js/TypeScript running in Docker):
-  - **Monitor:** Collects and sanitizes sensor data.
-  - **Analyzer:** Detects symptoms based on thresholds and historical knowledge (InfluxDB).
-  - **Planner:** Decisions making and conflict resolution (Safety vs Liveness).
-  - **Executor:** Translates plans into specific actuator commands.
+### 2. Managed Resource (Digital Twin)
+- **Simulator (Containerized):** A Node.js service that simulates the physical environment (Weather, Soil, Pests) and the physical actuators. It is agnostic: it downloads its definition (which sensors to simulate) from the Config Service at startup.
 
-## Prerequisites
+### 3. Autonomic Manager (The Brain)
+Decomposed into independent microservices:
+- **Config Service (Source of Truth):** Provides the system topology (devices) and Control Policies (Loops) via HTTP.
+- **Monitor:** Dynamically subscribes to sensor topics defined in the configuration.
+- **Analyzer (Generic Engine):** Evaluates logical rules (AND/OR, Thresholds) and complex historical queries (e.g., `EXT_INFLUX_DELAY`) defined in the JSON configuration.
+- **Planner (Conflict Resolver):** Receives action requests and resolves conflicts between loops based on Numerical Priority (e.g., Safety > Production).
+- **Executor:** Maps logical commands to specific physical topics.
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
-- [Node.js](https://nodejs.org/) (v18 or higher) installed.
+## 🚀 Key Engineering Concepts Implemented
+- **Single Source of Truth:** All rules, thresholds, and topology are centralized in `config-service`. Changing a threshold requires zero code changes in the Analyzer.
+- **Decoupling & Portability:** All services are independent containers. The Simulator runs in Docker, making the project runnable on any machine with one command.
+- **Dynamic Control Loops (Heterarchy):** The system supports "Many-to-Many" relationships. One sensor can trigger multiple actuators, or multiple sensors can influence a single decision.
+- **Fault Tolerance (Retry Pattern):** Services implement a robust startup sequence, retrying connections indefinitely until dependencies (like Config Service) are healthy.
 
-## How to Run the System
+## 🛠️ How to Run the System
+### Prerequisites
+- Docker Desktop installed and running.
 
-### 1. Start the Infrastructure & Autonomic Manager (Docker)
-
+### Start Everything
 Open a terminal in the project root and run:
-
 ```bash
 docker-compose up --build
 ```
 
-This command starts all infrastructure services (Mosquitto, InfluxDB, Grafana) AND the 4 Autonomic Manager microservices (Monitor, Analyzer, Planner, Executor).
+That's it. No need to install Node.js locally or run separate terminals. The command will build all images, start the infrastructure, and launch the autonomic loop.
 
-### 2. Start the Managed Resource (Simulator)
-
-Open a **new** terminal window in the project root. First, install dependencies (only the first time):
-
-```bash
-npm install
-```
-
-Then, run the simulator (located in the new folder):
+Verify System Behavior
+Check the logs to see the loop in action:
 
 ```bash
-npx ts-node managed-resource/simulator.ts
+
+# View the Analyzer evaluating rules dynamically
+docker logs -f sogm_analyzer
+
+# View the Planner resolving conflicts based on priority
+docker logs -f sogm_planner
 ```
 
-### 3. Verify System Behavior (Grafana)
+## ⚙️ Configuration & Logic (The Core)
+The system behavior is defined in **`config-service/index.ts`**. Here are the active Control Loops:
 
-1. Open [http://localhost:3000](http://localhost:3000) (User/Pass: `admin`/`admin`).
-2. Go to **Explore** → Select `influxdb_smart_olive_grove`.
-3. Query metrics like `temperature`, `humidity`, or `trap_count` to visualize the system state.
+### 1. Hydration Protection (Priority: 1)
+**Logic:** Simple Threshold  
+**Rule:** IF `humidity < 30` THEN `drip_valve = ON`
 
-## 🧪 Testing Scenarios
+### 2. Smart Pest Control (Priority: 5)
+**Logic:** Complex Boolean Logic + Historical Data  
+**Rule:** IF `trap_count > 50` AND (`wind_speed < 15` OR `EXT_INFLUX_DELAY > 30 mins`)  
+**Description:** Normally, we don’t spray pesticides if wind is high. However, if the high wind persists for more than 30 minutes (checked via InfluxDB), the system overrides the safety constraint and sprays anyway.
 
-To verify the logic, you can manually adjust the physics in `managed-resource/simulator.ts` to trigger specific scenarios.
+### 3. Storm Safety (Priority: 10 - Critical)
+**Logic:** Safety Override  
+**Rule:** IF `wind_speed > 40` THEN `drip_valve = OFF` AND `nebulizer_pump = OFF`  
+**Conflict Resolution:** Since Priority 10 is higher than 1 and 5, this loop wins against Hydration and Pest Control, forcing a shutdown.
 
-### Scenario A: Hydration Maintenance (Reactive)
+### 4. Frost Protection (Priority: 8)
+**Logic:** Critical Threshold  
+**Rule:** IF `temperature <= 0` THEN `antifrost_emitter = ON`
 
-**Goal:** Detect low humidity (< 30%) and activate the Drip Valve.
+## 📊 Visualization
+Open http://localhost:3000 (User/Pass: admin/admin).
 
-**How to test:**
+Go to Explore → Select influxdb_smart_olive_grove.
 
-1. Open `managed-resource/simulator.ts`.
-2. Set starting humidity to a low value:
+You can plot wind_speed, trap_count, and nebulizer status to verify the logic.
 
-```typescript
-let currentHumidity = 20.0;
+```bash
+📂 Project Structure
+├── config-service/   # Stores Topology and Rules (JSON)
+├── analyzer/         # Generic Rule Engine
+├── planner/          # Priority-based Decision Maker
+├── monitor/          # Data Collector
+├── executor/         # Actuator Commander
+├── managed-resource/ # Agnostic Simulator
+├── mosquitto/        # MQTT Config
+└── docker-compose.yml
 ```
-
-**Result:** The Analyzer detects `DROUGHT_DETECTED`, the Planner decides `IRRIGATE`, and the Executor sends `ON` to `drip_valve`.
-
-### Scenario B: Pest Control with Constraints (Conflict Resolution)
-
-**Goal:** Treat infestation (> 50 pests) ONLY if wind is safe (< 15 km/h).
-
-**How to test:**
-
-1. Open `managed-resource/simulator.ts`.
-2. Force high pest count:
-
-```typescript
-let currentTrapCount = 60;
-```
-
-**Result 1 (High Wind):** If wind > 15, the Planner logs: `✋ CONFLITTO: Infestazione ma Vento Alto. POSTICIPO.`
-
-**Result 2 (Low Wind):** If you force low wind (`currentWindSpeed = 5;`), the Planner logs: `💡 Decisione: Attivare Nebulizzatore` and sends `ON`.
-
-### Scenario C: Frost Protection (Predictive / Knowledge-Based)
-
-**Goal:** Predict freezing based on temperature drop rate (> 2°C/h) using historical data from InfluxDB.
-
-**How to test:**
-
-1. Open `managed-resource/simulator.ts`.
-2. Force a rapid temperature drop inside `simulationLoop`:
-
-```typescript
-// currentTemp += (Math.random() - 0.5); // Comment this
-currentTemp -= 0.5; // Force rapid drop
-
-let currentTemp = 10.0; // Start from lower temperature
-```
-
-**Result:** When Temp drops below 3°C, the Analyzer queries InfluxDB, detects `FROST_RISK_PREDICTED`, and the Planner activates `antifrost_valve` BEFORE 0°C is reached.
-
-## Architecture Diagram
-
-![Architecture Diagram](./architecture-diagram.jpg)

@@ -7,55 +7,51 @@ const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
 
 console.log("[MONITOR] Avvio servizio...");
 
-// Helper per il Retry all'avvio
 async function fetchConfigWithRetry() {
   let attempts = 0;
   while (true) {
     try {
-      const response = await axios.get(CONFIG_SERVICE_URL);
-      console.log("📥 [MONITOR] Configurazione ricevuta.");
-      return response.data; // Ritorna tutto (topics + knowledge)
+      const res = await axios.get(CONFIG_SERVICE_URL);
+      return res.data;
     } catch (error) {
       attempts++;
-      console.warn(
-        `⚠️ [MONITOR] Config Service non raggiungibile (Tentativo ${attempts}). Riprovo tra 3s...`,
-      );
+      console.warn(`⚠️ [MONITOR] Waiting for Config... (${attempts})`);
       await new Promise((resolve) => setTimeout(resolve, 3000));
     }
   }
 }
 
 async function startMonitor() {
-  // 1. Fetch Config con Retry
   const config = await fetchConfigWithRetry();
-  const topics = config.topics;
+  const internalTopic = config.internal_topics.monitor;
 
-  // 2. Connect MQTT
   const client = mqtt.connect(MQTT_BROKER_URL);
 
   client.on("connect", () => {
-    console.log("✅ [MONITOR] Connesso al broker");
-    client.subscribe(topics.sensor_weather);
+    console.log("✅ [MONITOR] Connesso.");
+
+    // SOTTOSCRIZIONE DINAMICA A TUTTI I SENSORI
+    config.devices.sensors.forEach((sensor: any) => {
+      console.log(`👀 Monitoraggio sensore: ${sensor.id} (${sensor.topic})`);
+      client.subscribe(sensor.topic);
+    });
   });
 
   client.on("message", (topic, message) => {
-    if (topic === topics.sensor_weather) {
-      try {
-        const rawData = JSON.parse(message.toString());
+    try {
+      const rawData = JSON.parse(message.toString());
 
-        const cleanData = {
-          humidity: rawData.humidity,
-          temperature: rawData.temperature,
-          wind_speed: rawData.wind_speed,
-          trap_count: rawData.trap_count,
-          timestamp: new Date().toISOString(),
-        };
+      // Arricchiamo il dato
+      const processedData = {
+        ...rawData,
+        _monitor_timestamp: new Date().toISOString(),
+        _source_topic: topic,
+      };
 
-        console.log(`📡 [MONITOR] Inoltro dati a ${topics.internal_monitor}`);
-        client.publish(topics.internal_monitor, JSON.stringify(cleanData));
-      } catch (e) {
-        console.error("❌ Errore parsing sensore", e);
-      }
+      // Inoltro al canale interno unico
+      client.publish(internalTopic, JSON.stringify(processedData));
+    } catch (e) {
+      console.error("Monitor Error", e);
     }
   });
 }

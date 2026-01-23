@@ -11,64 +11,53 @@ async function fetchConfigWithRetry() {
   let attempts = 0;
   while (true) {
     try {
-      const response = await axios.get(CONFIG_SERVICE_URL);
-      console.log("📥 [EXECUTOR] Configurazione ricevuta.");
-      return response.data;
+      const res = await axios.get(CONFIG_SERVICE_URL);
+      return res.data;
     } catch (error) {
       attempts++;
-      console.warn(
-        `⚠️ [EXECUTOR] Config Service non raggiungibile (Tentativo ${attempts}). Riprovo tra 3s...`,
-      );
+      console.warn(`⚠️ [EXECUTOR] Waiting for Config... (${attempts})`);
       await new Promise((resolve) => setTimeout(resolve, 3000));
     }
   }
 }
 
 async function startExecutor() {
-  // 1. Fetch Configuration ROBUSTA
   const config = await fetchConfigWithRetry();
-  const topics = config.topics;
+  const inputTopic = config.internal_topics.plan;
 
-  // 2. Mappatura Logica -> Fisica (Dinamica)
-  const ACTUATORS_MAP: { [key: string]: string } = {
-    drip_valve: topics.actuator_valve,
-    antifrost_valve: topics.actuator_antifrost,
-    nebulizer_pump: topics.actuator_nebulizer,
-  };
+  // Mappa rapida ID -> TOPIC
+  const actuatorMap = new Map<string, string>();
+  config.devices.actuators.forEach((a: any) => {
+    actuatorMap.set(a.id, a.topic);
+  });
 
   const client = mqtt.connect(MQTT_BROKER_URL);
 
   client.on("connect", () => {
-    console.log("✅ [EXECUTOR] Connesso");
-    client.subscribe(topics.internal_plan);
+    console.log("✅ [EXECUTOR] Connesso.");
+    client.subscribe(inputTopic);
   });
 
   client.on("message", (topic, message) => {
     try {
       const plan = JSON.parse(message.toString());
-      execute(client, plan, ACTUATORS_MAP);
+      const targetTopic = actuatorMap.get(plan.target);
+
+      if (targetTopic) {
+        const payload = JSON.stringify({
+          command: plan.action,
+          timestamp: new Date().toISOString(),
+        });
+
+        console.log(`🚀 [EXECUTOR] ${plan.action} -> ${targetTopic}`);
+        client.publish(targetTopic, payload);
+      } else {
+        console.error(`❌ Actuator ID non trovato: ${plan.target}`);
+      }
     } catch (e) {
       console.error(e);
     }
   });
-}
-
-function execute(client: mqtt.MqttClient, plan: any, actuatorsMap: any) {
-  const targetTopic = actuatorsMap[plan.target];
-
-  if (targetTopic) {
-    const commandPayload = JSON.stringify({
-      command: plan.action,
-      timestamp: new Date().toISOString(),
-    });
-
-    console.log(`🚀 [EXECUTOR] Esecuzione: ${plan.action} su ${targetTopic}`);
-    client.publish(targetTopic, commandPayload);
-  } else {
-    console.error(
-      `❌ [EXECUTOR] Attuatore sconosciuto nel piano: ${plan.target}`,
-    );
-  }
 }
 
 startExecutor();
