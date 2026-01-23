@@ -185,3 +185,7 @@ You can plot wind_speed, trap_count, and nebulizer status to verify the logic.
 ├── mosquitto/        # MQTT Config
 └── docker-compose.yml
 ```
+
+## Architecture Diagram
+
+![Architecture Diagram](./architecture-diagram.jpg)
