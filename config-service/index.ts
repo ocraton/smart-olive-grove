@@ -15,7 +15,6 @@ const CONFIGURATION = {
   },
 
   // 1. DEVICE CATALOG (Topologia Fisica)
-  // Qui elenchiamo cosa esiste nel mondo reale e su quali topic parla
   devices: {
     sensors: [{ id: "weather_station_1", topic: "oliveto/sector_a/weather" }],
     actuators: [
@@ -26,10 +25,6 @@ const CONFIGURATION = {
   },
 
   // 2. CONTROL LOOPS (Logica Many-to-Many)
-  // Definiamo le relazioni logiche.
-  // - Un sensore può stare in più loop.
-  // - Un loop può comandare più attuatori.
-  // - La logica supporta AND/OR nidificati e funzioni speciali (EXT_INFLUX_DELAY).
   loops: [
     {
       id: "loop_hydration_protection",
@@ -37,7 +32,6 @@ const CONFIGURATION = {
       priority: 1, // Bassa priorità
       enabled: true,
       inputs: ["weather_station_1"],
-      // Regola Semplice
       condition: {
         field: "humidity",
         operator: "<",
@@ -56,20 +50,16 @@ const CONFIGURATION = {
       enabled: true,
       inputs: ["weather_station_1"],
 
-      // LOGICA COMPLESSA:
-      // ATTIVA SE: (Insetti > 50) AND [ (Vento < 15) OR (TempoScaduto > 30 min) ]
+      // LOGICA: (Insetti > 50) AND [ (Vento < 15) OR (TempoAttesa > 30 min) ]
       condition: {
         logic: "AND",
         conditions: [
-          // Condizione 1: Devono esserci insetti
           { field: "trap_count", operator: ">", threshold: 50 },
-
-          // Condizione 2: Sicurezza Vento (O il vento è basso, O aspettiamo da troppo)
           {
             logic: "OR",
             conditions: [
               { field: "wind_speed", operator: "<", threshold: 15.0 },
-              // QUI USIAMO LA FUNZIONE SPECIALE CHE LEGGE INFLUXDB
+              // RITORNIAMO AL VALORE REALISTICO: 30 Minuti di attesa
               { field: "EXT_INFLUX_DELAY", operator: ">", threshold: 30 },
             ],
           },
@@ -84,15 +74,14 @@ const CONFIGURATION = {
     {
       id: "loop_storm_safety",
       description: "Sicurezza Vento: Chiude TUTTO se c'è tempesta",
-      priority: 10, // ALTA priorità (Override su tutto)
+      priority: 10, // ALTA priorità
       enabled: true,
       inputs: ["weather_station_1"],
       condition: {
         field: "wind_speed",
         operator: ">",
-        threshold: 40.0, // Vento fortissimo
+        threshold: 40.0,
       },
-      // Many-to-Many: 1 sensore spegne 2 attuatori diversi
       actions: {
         on_true: {
           target_actuators: ["drip_valve_main", "nebulizer_pump"],
@@ -111,11 +100,8 @@ const CONFIGURATION = {
       condition: {
         logic: "OR",
         conditions: [
-          // Caso 1: Gelo Immediato
           { field: "temperature", operator: "<=", threshold: 0.0 },
-
-          // Caso 2: Predizione (Drop Rate > 2.0)
-          // USIAMO UNA NUOVA KEYWORD SPECIALE
+          // Predizione basata sul drop rate > 2.0 °C/h
           { field: "EXT_TEMP_DROP_RATE", operator: ">", threshold: 2.0 },
         ],
       },
@@ -126,7 +112,6 @@ const CONFIGURATION = {
     },
   ],
 
-  // Topic Interni per l'orchestrazione MAPE
   internal_topics: {
     monitor: "managed/monitor/data",
     symptom: "managed/analyze/symptom",

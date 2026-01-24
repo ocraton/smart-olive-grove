@@ -6,11 +6,12 @@ const CONFIG_SERVICE_URL =
 const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
 
 // Stato Fisico (Simulato)
+// Stato Iniziale: Condizioni Ottimali (Nessun allarme attivo)
 let physics = {
-  temperature: -2.0, // <--- TEST: Gelo Immediato! (Triggera Scenario C)
-  humidity: 40.0, // Normale
-  wind_speed: 5.0, // Normale
-  trap_count: 0, // Niente parassiti
+  temperature: 25.0,  // Caldo moderato
+  humidity: 60.0,     // Umidità buona (sopra 30, quindi niente irrigazione)
+  wind_speed: 5.0,    // Brezza leggera (sicuro)
+  trap_count: 0,      // Nessun parassita
 };
 
 // Stato Attuatori (Dinamico)

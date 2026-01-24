@@ -35,6 +35,7 @@ Decomposed into independent microservices:
 - **Single Source of Truth:** All rules, thresholds, and topology are centralized in `config-service`. Changing a threshold requires **zero code changes** in the Analyzer.
 - **Decoupling & Portability:** All services are independent containers. The Simulator runs in Docker, making the project runnable on any machine with one command.
 - **Dynamic Control Loops (Heterarchy):** The system supports "Many-to-Many" relationships. One sensor can trigger multiple actuators, or multiple sensors can influence a single decision.
+- **Stateful Analysis:** The Analyzer doesn't just check current values; it queries InfluxDB to make decisions based on time (Duration) or trends (Drop Rate).
 - **Fault Tolerance (Retry Pattern):** Services implement a robust startup sequence, retrying connections indefinitely until dependencies (like Config Service) are healthy.
 
 ## 🛠️ How to Run the System
@@ -64,7 +65,7 @@ docker logs -f sogm_planner
 ```
 
 ## 🧪 How to Test Specific Scenarios
-To verify the autonomic logic, you can modify the initial physics state in managed-resource/simulator.ts and restart only the simulator container.
+To verify the autonomic logic, you can modify the initial physics state in **`managed-resource/simulator.ts`** and restart only the simulator container.
 
 ### Scenario A: Hydration Maintenance (Reactive)
 **Goal:** Detect low humidity (< 30%) and activate the Drip Valve.
@@ -94,15 +95,13 @@ Log shows 🚀 [EXECUTOR] ON -> .../drip_valve.
 ### Scenario B: Pest Control with Conflict Resolution
 **Goal:** Treat infestation (`> 50 pests`) ONLY if wind is safe (`< 15 km/h`). If wind is high, wait. `If delay > 30 mins`, force activation.
 
-Open **`managed-resource/simulator.ts.`**
-
-Modify the physics object:
+Modify **`managed-resource/simulator.ts.`**
 
 ```TypeScript
 let physics = {
   temperature: 20.0,
   humidity: 50.0,
-  wind_speed: 25.0,  // <--- TEST: High Wind (> 15)
+  wind_speed: 25.0,  // <--- TEST: High Wind (> 15) -> SAFETY LOCK
   trap_count: 80     // <--- TEST: Critical Infestation (> 50)
 };
 ```
@@ -113,37 +112,29 @@ docker-compose up -d --build simulator
 
 Result:
 ```bash
-Analyzer logs: ℹ️ Primo blocco vento rilevato. Avvio timer...
+1. Initially, the Actuator remains OFF. Analyzer logs: ℹ️ Primo blocco vento rilevato. Avvio timer....
+
+2. After 30 mins (or if you lower the threshold in config-service), the Analyzer forces the activation.
 ```
 
-Actuator remains OFF initially.
+### Scenario C: Frost Protection (Predictive)
+**Goal:** Proactive activation if temperature drops below 0°C OR if it drops rapidly (> 2°C/h).
 
-(After 30 mins or forcing DB): Analyzer logs 📝 Timer avviato and eventually activates override.
-
-
-### Scenario C: Frost Protection (Predictive/Critical)
-**Goal:** Immediate activation of anti-frost emitter if temperature drops below 0°C.
-
-Open **`managed-resource/simulator.ts.`**
-
-Modify the physics object:
+Modify **`managed-resource/simulator.ts.`** to simulate a drop (e.g., set to 3°C after a period of 15°C):
 
 ```TypeScript
 let physics = {
-  temperature: -2.0, // <--- TEST: Freezing condition
+  temperature: 3.0,  // <--- TEST: Low but above zero
   humidity: 40.0,
   wind_speed: 5.0,
   trap_count: 0
 };
 ```
-Apply changes: 
-```bash
-docker-compose up -d --build simulator
-```
+Note: To test the drop rate, the DB needs some history of higher temperatures first.
 
 Result: 
 ```bash
-Analyzer logs ⚡ Loop Critico 'loop_frost_protection' attivato! and Executor sends ON to antifrost_emitter.
+Analyzer detects EXT_TEMP_DROP_RATE and activates antifrost_emitter proactively before freezing occurs.
 ```
 
 ## ⚙️ Configuration & Logic (The Core)
@@ -166,11 +157,18 @@ The system behavior is defined in **`config-service/index.ts`**. Here are the ac
 ### 4. Frost Protection (Priority: 8)
 **Logic:** Critical Threshold  
 **Rule:** IF `temperature <= 0` THEN `antifrost_emitter = ON`
+**Description:**  Activates if freezing point is reached OR if a rapid temperature drop is detected (Proactive approach).
 
 ## 📊 Visualization
 Open http://localhost:3000 (User/Pass: admin/admin).
 
-Go to Explore → Select influxdb_smart_olive_grove.
+#### Setup Data Source
+- url: http://influxdb:8086
+- database: olive_grove_db
+- user: admin
+- pass: adminpassword
+
+Go to Explore or create a Dashboard to plot wind_speed, trap_count, and nebulizer status to verify the logic.
 
 You can plot wind_speed, trap_count, and nebulizer status to verify the logic.
 
