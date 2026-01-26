@@ -1,9 +1,8 @@
 import * as mqtt from "mqtt";
 import axios from "axios";
 
-// --- FIX URL: Pulizia robusta dell'indirizzo ---
+// --- URL CONFIGURATION: Clean handling of environment variables ---
 const RAW_URL = process.env.INFLUX_URL || "http://influxdb:8086";
-// Rimuove "/query" finale o slash finali se presenti per evitare doppi percorsi (es. /query/query)
 const INFLUX_URL = RAW_URL.replace(/\/query\/?$/, "").replace(/\/$/, "");
 
 const CONFIG_SERVICE_URL =
@@ -11,9 +10,11 @@ const CONFIG_SERVICE_URL =
 const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
 const DATABASE_NAME = "olive_grove_db";
 
-console.log(`[ANALYZER] Avvio servizio... (InfluxDB Base URL: ${INFLUX_URL})`);
+console.log(
+  `[ANALYZER] Service Starting... (InfluxDB Base URL: ${INFLUX_URL})`,
+);
 
-// --- 1. HELPER SCRITTURA (Per avviare il timer vento) ---
+// --- 1. WRITE HELPER: Log Delay Event ---
 const logDelayEvent = async (): Promise<void> => {
   try {
     const writeUrl = `${INFLUX_URL}/write?db=${DATABASE_NAME}`;
@@ -21,17 +22,14 @@ const logDelayEvent = async (): Promise<void> => {
       headers: { "Content-Type": "text/plain" },
     });
     console.log(
-      "📝 [ANALYZER] Timer avviato: Evento di posticipo salvato su InfluxDB.",
+      "📝 [ANALYZER] Timer Started: Delay event recorded in InfluxDB.",
     );
   } catch (e) {
-    console.error(
-      "❌ [ANALYZER] Errore scrittura InfluxDB:",
-      e instanceof Error ? e.message : String(e),
-    );
+    console.error("❌ [ANALYZER] Error writing to InfluxDB:", e);
   }
 };
 
-// --- 2. HELPER LETTURA: RITARDO VENTO ---
+// --- 2. READ HELPER: Check Delay Duration ---
 async function checkIfDelayedTooLong(delayThreshold: number): Promise<boolean> {
   try {
     const query = `SELECT * FROM delay_events ORDER BY time DESC LIMIT 1`;
@@ -40,9 +38,10 @@ async function checkIfDelayedTooLong(delayThreshold: number): Promise<boolean> {
     });
     const results = response.data?.results;
 
-    // Se non c'è mai stato un evento, è la prima volta -> Scriviamo e aspettiamo
+    // If no event is found, it's the first time the condition occurs.
+    // We log the start time and return false (wait).
     if (!results || !results[0] || !results[0].series) {
-      console.log("ℹ️ [ANALYZER] Primo blocco vento rilevato. Avvio timer...");
+      console.log("ℹ️ [ANALYZER] First delay occurrence. Starting timer...");
       await logDelayEvent();
       return false;
     }
@@ -51,31 +50,20 @@ async function checkIfDelayedTooLong(delayThreshold: number): Promise<boolean> {
     const lastTime = lastEventValues[0];
     const timeDiffMinutes = (Date.now() - lastTime) / (1000 * 60);
 
-    // Reset timer se troppo vecchio (> 60 min dall'ultimo evento)
-    if (timeDiffMinutes > 60 && delayThreshold < 60) {
-      console.log(
-        "ℹ️ [ANALYZER] Vecchio timer scaduto da molto. Riavvio per nuovo evento meteo.",
-      );
+    // Evaluate if the delay has exceeded the threshold
+    return timeDiffMinutes >= delayThreshold;
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 404) {
+      // Database might not exist yet on first run
       await logDelayEvent();
       return false;
     }
-
-    return timeDiffMinutes >= delayThreshold;
-  } catch (e) {
-    // Stampiamo l'errore completo per debug se serve
-    if (axios.isAxiosError(e)) {
-      console.error(
-        `Errore InfluxDB (${e.response?.status} ${e.response?.statusText}):`,
-        e.config?.url,
-      );
-    } else {
-      console.error("Errore generico lettura InfluxDB:", e);
-    }
+    console.error("Error querying InfluxDB:", e);
     return false;
   }
 }
 
-// --- 3. HELPER LETTURA: TREND TEMPERATURA ---
+// --- 3. READ HELPER: Check Temperature Drop Rate ---
 async function checkDropRateHigh(threshold: number): Promise<boolean> {
   try {
     const query = `SELECT temperature FROM mqtt_consumer WHERE time >= now() - 30m`;
@@ -97,11 +85,11 @@ async function checkDropRateHigh(threshold: number): Promise<boolean> {
       endValues.length;
 
     const diff = startAvg - endAvg;
-    const dropRate = diff * 2;
+    const dropRate = diff * 2; // Estimate hourly rate based on 30m window
 
     if (dropRate > threshold) {
       console.log(
-        `📉 [ANALYZER] Crollo Termico rilevato: ${dropRate.toFixed(2)} °C/h (Soglia: ${threshold})`,
+        `📉 [ANALYZER] Rapid Drop Detected: ${dropRate.toFixed(2)} °C/h (Threshold: ${threshold})`,
       );
       return true;
     }
@@ -111,7 +99,7 @@ async function checkDropRateHigh(threshold: number): Promise<boolean> {
   }
 }
 
-// --- CONFIGURAZIONE ---
+// --- CONFIGURATION ---
 async function fetchConfigWithRetry() {
   let attempts = 0;
   while (true) {
@@ -126,7 +114,7 @@ async function fetchConfigWithRetry() {
   }
 }
 
-// --- ENGINE DI VALUTAZIONE ---
+// --- EVALUATION ENGINE ---
 async function evaluateCondition(data: any, condition: any): Promise<boolean> {
   if (condition.logic === "AND" && condition.conditions) {
     for (const subCond of condition.conditions) {
@@ -144,6 +132,7 @@ async function evaluateCondition(data: any, condition: any): Promise<boolean> {
     return false;
   }
 
+  // Complex / Stateful Conditions
   if (condition.field === "EXT_INFLUX_DELAY") {
     return await checkIfDelayedTooLong(condition.threshold);
   }
@@ -152,6 +141,7 @@ async function evaluateCondition(data: any, condition: any): Promise<boolean> {
     return await checkDropRateHigh(condition.threshold);
   }
 
+  // Standard Comparison
   const value = data[condition.field];
   const threshold = condition.threshold;
 
@@ -181,7 +171,7 @@ async function startAnalyzer() {
   const client = mqtt.connect(MQTT_BROKER_URL);
 
   client.on("connect", () => {
-    console.log("✅ [ANALYZER] Connesso. Engine pronto.");
+    console.log("✅ [ANALYZER] Connected. Engine Ready.");
     client.subscribe(inputTopic);
   });
 
@@ -194,6 +184,7 @@ async function startAnalyzer() {
         for (const loop of config.loops) {
           if (!loop.enabled) continue;
 
+          // Only evaluate loops that involve this sensor
           if (loop.inputs.includes(sensorId)) {
             const isTriggered = await evaluateCondition(data, loop.condition);
 
@@ -207,6 +198,7 @@ async function startAnalyzer() {
               source_data: data,
             };
 
+            // Only publish if there is a valid action (not NO_OP)
             if (symptom.actions && symptom.actions.command !== "NO_OP") {
               if (
                 isTriggered &&
@@ -214,7 +206,7 @@ async function startAnalyzer() {
                   loop.id === "loop_frost_protection")
               ) {
                 console.log(
-                  `⚡ [ANALYZER] Loop Critico '${loop.id}' attivato!`,
+                  `⚡ [ANALYZER] Critical Loop '${loop.id}' Triggered!`,
                 );
               }
               client.publish(outputTopic, JSON.stringify(symptom));
@@ -222,7 +214,7 @@ async function startAnalyzer() {
           }
         }
       } catch (e) {
-        console.error("Errore processing messaggio", e);
+        console.error("Error processing message", e);
       }
     }
   });
