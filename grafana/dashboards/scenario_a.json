@@ -1,0 +1,300 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "olive-grove-uid"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-BlPu",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMax": 40,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 13,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "semi-dark-red",
+                "value": 30
+              },
+              {
+                "color": "light-yellow",
+                "value": 35
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "alias": "Soil Humidity",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "olive-grove-uid"
+          },
+          "groupBy": [
+            {
+              "params": ["$__interval"],
+              "type": "time"
+            },
+            {
+              "params": ["linear"],
+              "type": "fill"
+            }
+          ],
+          "measurement": "mqtt_consumer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT mean(\"humidity\") FROM \"mqtt_consumer\" WHERE (\"topic\" = 'oliveto/sector_a/weather') AND $timeFilter GROUP BY time($__interval) fill(linear)",
+          "rawQuery": false,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": ["humidity"],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "topic::tag",
+              "operator": "=",
+              "value": "oliveto/sector_a/weather"
+            }
+          ]
+        }
+      ],
+      "title": "Humidity ",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "olive-grove-uid"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisPlacement": "auto",
+            "fillOpacity": 79,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "pattern": ".*\"ON\".*",
+                "result": {
+                  "color": "semi-dark-green",
+                  "index": 0,
+                  "text": "OPEN"
+                }
+              },
+              "type": "regex"
+            },
+            {
+              "options": {
+                "pattern": ".*\"OFF\".*",
+                "result": {
+                  "color": "#a3a3a3",
+                  "index": 1,
+                  "text": "CLOSED"
+                }
+              },
+              "type": "regex"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "semi-dark-red",
+                "value": 30
+              },
+              {
+                "color": "light-blue",
+                "value": 35
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "mergeValues": true,
+        "rowHeight": 0.62,
+        "showValue": "auto",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "alias": " ",
+          "groupBy": [],
+          "measurement": "mqtt_consumer",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"value\" FROM \"mqtt_consumer\" WHERE (\"topic\"::tag = 'oliveto/sector_a/drip_valve') AND $timeFilter",
+          "rawQuery": false,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": ["value"],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "topic::tag",
+              "operator": "=",
+              "value": "oliveto/sector_a/drip_valve"
+            }
+          ]
+        }
+      ],
+      "title": "Actuator Response: Drip Valve",
+      "type": "state-timeline"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Scenario A",
+  "uid": "ads8jc8",
+  "version": 19
+}

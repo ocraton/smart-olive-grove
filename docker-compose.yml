@@ -48,6 +48,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
 
   # --- CONFIGURATION SERVICE ---
   config-server:
@@ -57,15 +59,14 @@ services:
     container_name: sogm_config
     ports:
       - "4000:4000"
-    # DEFINIAMO IL CONTROLLO DI SALUTE (Richiede curl nel Dockerfile!)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/config"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4000/config"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
 
-  # --- MANAGED RESOURCE (IL SIMULATORE) ---
+  # --- MANAGED RESOURCE ---
   simulator:
     build:
       context: ./managed-resource  

@@ -162,12 +162,6 @@ The system behavior is defined in **`config-service/index.ts`**. Here are the ac
 ## 📊 Visualization
 Open http://localhost:3000 (User/Pass: admin/admin).
 
-#### Setup Data Source
-- url: http://influxdb:8086
-- database: olive_grove_db
-- user: admin
-- pass: adminpassword
-
 Go to Explore or create a Dashboard to plot wind_speed, trap_count, and nebulizer status to verify the logic.
 
 You can plot wind_speed, trap_count, and nebulizer status to verify the logic.
